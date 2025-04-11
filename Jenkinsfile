@@ -1,5 +1,4 @@
 # Jenkins Complete pipeline
-```
 pipeline {
     agent any
     tools {
