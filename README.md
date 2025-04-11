@@ -1,8 +1,10 @@
 ![Starbucks Clone Deployment](https://github.com/user-attachments/assets/6b654f47-9537-4b88-9584-41c760fc49ac)
 
 # Deploy Starbucks Clone Application AWS using DevSecOps Approach
-Steps to Build the Project:
 
+# Steps to Build the Project:
+
+```
 1. Create an EC2 Instance
 
 2. Install the packages
@@ -17,7 +19,9 @@ Steps to Build the Project:
 
 7. Write the Jenkins Pipeline Script
 
-8. Deploy and test
+8. Deploy and test
+
+```
 
 # **Install AWS CLI**
 ```
