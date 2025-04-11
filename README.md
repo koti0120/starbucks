@@ -1,7 +1,23 @@
 ![Starbucks Clone Deployment](https://github.com/user-attachments/assets/6b654f47-9537-4b88-9584-41c760fc49ac)
 
 # Deploy Starbucks Clone Application AWS using DevSecOps Approach
-https://app.eraser.io/workspace/59NJfCay26dUMl5YAlFl?origin=share
+Steps to Build the Project:
+
+1. Create an EC2 Instance
+
+2. Install the packages
+
+3. Deploy SonarQube Container
+
+4. Configure Jenkins
+
+5. Configure SonarQube
+
+6. Create Secrets
+
+7. Write the Jenkins Pipeline Script
+
+8. Deploy and test
 
 # **Install AWS CLI**
 ```
