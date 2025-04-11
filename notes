@@ -1,0 +1,152 @@
+Create ubuntu t2.large server
+
+after jenkins 
+
+docker run -d --name sonar -p 9000:9000 sonarqube:lts-community
+
+docker ps
+
+p.ip:9000  --> login sonarqube web page --> default username: admin, pw:admin
+
+>>>>>>>>>>>>>>>
+
+manage jenkijns--->plugins-->eclipse temurin installer, sonarqube scanner, nodejs, docker commons, docker pipeline,docker api , docker, docker build step, owasp dependency check, email extension, blue ocean,pipeline stage view
+
+>>>>>>>>>>>>>>>>>integrate sonar to jenkins >>>>>>>>>>>>>>>>>>>>>
+goto sonar--> click on admin-->security-->user--> generate token
+
+then go to jenkins --> manage jenkins--> credentials --> create id: sonar-token
+and add docker credentials-->id: docker
+
+go to sonar--> configuration --> cerate webhook--> jenkinsurl/sonarqube-webhook/
+
+got to manage jenkins--> tools-->1. add jdk --> name:jdk17-->install automatically , select adoptium-->17.0.8.1 +1
+2. sonarqube installer -->add --> name:sonar-scanner 
+3. nodejs -->name: node16-->16.20.0
+4. dependency check-->name:DP-check
+5. docker-->name:docker
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+manage jenkins --> system--> search sonar installation --> name:sonar-server
+
+>>>>>>>>>>>>>>>>>set up email notification>>>>>>>>>>>>>>>>>
+manage jenkins -->credentials-->id: mail-cred 
+
+manage jenkins --> system-->1.search extend email -->smtp server:smtp.gmail.com ,port:465--> click on advanced--> choose mail-creds --> enable use ssl,use Oauth
+2.email notification-->smtp server:smtp.gmail.com--> click on advanced -->username:koti0120@gmail.com , pw:--> enable ssl--> port:465 --> test configuration
+3. search default triggers --> enable always,success,failure
+
+
+# Jenkins Complete pipeline
+```
+pipeline {
+    agent any
+    tools {
+        jdk 'jdk17'
+        nodejs 'node16'
+    }
+    environment {
+        SCANNER_HOME=tool 'sonar-scanner'
+    }
+    stages {
+        stage ("clean workspace") {
+            steps {
+                cleanWs()
+            }
+        }
+        stage ("Git checkout") {
+            steps {
+                git branch: 'main', url: 'https://github.com/koti0120/starbucks.git'
+            }
+        }
+        stage("Sonarqube Analysis "){
+            steps{
+                withSonarQubeEnv('sonar-server') {
+                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=starbucks \
+                    -Dsonar.projectKey=starbucks '''
+                }
+            }
+        }
+        stage("quality gate"){
+           steps {
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token' 
+                }
+            } 
+        }
+        stage("Install NPM Dependencies") {
+            steps {
+                sh "npm install"
+            }
+        }
+        stage('OWASP FS SCAN') {
+            steps {
+                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
+            }
+        }
+        stage ("Trivy File Scan") {
+            steps {
+                sh "trivy fs . > trivy.txt"
+            }
+        }
+        stage ("Build Docker Image") {
+            steps {
+                sh "docker build -t starbucks ."
+            }
+        }
+        stage ("Tag & Push to DockerHub") {
+            steps {
+                script {
+                    withDockerRegistry(credentialsId: 'docker') {
+                        sh "docker tag starbucks koti0120/starbucks:latest "
+                        sh "docker push koti0120/starbucks:latest "
+                    }
+                }
+            }
+        }
+        stage('Docker Scout Image') {
+            steps {
+                script{
+                   withDockerRegistry(credentialsId: 'docker', toolName: 'docker'){
+                       sh 'docker-scout quickview koti0120/starbucks:latest'
+                       sh 'docker-scout cves koti0120/starbucks:latest'
+                       sh 'docker-scout recommendations koti0120/starbucks:latest'
+                   }
+                }
+            }
+        }
+        stage ("Deploy to Conatiner") {
+            steps {
+                sh 'docker run -d --name starbucks -p 3000:3000 koti0120/starbucks:latest'
+            }
+        }
+    }
+    post {
+    always {
+        emailext attachLog: true,
+            subject: "'${currentBuild.result}'",
+            body: """
+                <html>
+                <body>
+                    <div style="background-color: #FFA07A; padding: 10px; margin-bottom: 10px;">
+                        <p style="color: white; font-weight: bold;">Project: ${env.JOB_NAME}</p>
+                    </div>
+                    <div style="background-color: #90EE90; padding: 10px; margin-bottom: 10px;">
+                        <p style="color: white; font-weight: bold;">Build Number: ${env.BUILD_NUMBER}</p>
+                    </div>
+                    <div style="background-color: #87CEEB; padding: 10px; margin-bottom: 10px;">
+                        <p style="color: white; font-weight: bold;">URL: ${env.BUILD_URL}</p>
+                    </div>
+                </body>
+                </html>
+            """,
+            to: 'provide_your_Email_id_here',
+            mimeType: 'text/html',
+            attachmentsPattern: 'trivy.txt'
+        }
+    }
+}
+
+```
+
